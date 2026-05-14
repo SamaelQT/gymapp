@@ -1,57 +1,137 @@
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Header } from '../components/layout/Header'
 import { useWorkoutStore } from '../store/useWorkoutStore'
 import { useUserStore } from '../store/useUserStore'
 import { useAuthStore } from '../store/useAuthStore'
 
 const DAYS_VI = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
 
-// delay passed via motion.div custom + transition prop directly
+/* ─── Icons ─────────────────────────────────────── */
+const IcDumbbell = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" style={{ width: 17, height: 17 }}>
+    <path d="M6 4v16M18 4v16M6 12h12M3 8h3M18 8h3M3 16h3M18 16h3" />
+  </svg>
+)
+const IcFlame = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 17, height: 17 }}>
+    <path d="M12 2c0 0-5.5 5.8-5.5 11a5.5 5.5 0 0 0 11 0c0-2.6-1.3-4.8-2.7-6.3 0 2.1-1.4 3-2.3 3-1.2 0-2-1-1.8-2.5C10.9 5.6 12 2 12 2z" />
+  </svg>
+)
+const IcMuscle = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" style={{ width: 17, height: 17 }}>
+    <path d="M6.5 6.5c1-1 2.5-1.5 4-1s3.5 2 3.5 2l2-2c1-1 2.5-.5 2.5 1.5v3c0 1-1 1.5-2 1.5H6c-1 0-2-.5-2-1.5V8c0-1.5 1.5-2.5 2.5-1.5z" />
+    <path d="M6 12v5c0 1 .5 1.5 1.5 1.5h9c1 0 1.5-.5 1.5-1.5v-5" />
+  </svg>
+)
+const IcClock = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" style={{ width: 17, height: 17 }}>
+    <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+  </svg>
+)
+const IcPlay = () => (
+  <svg viewBox="0 0 24 24" fill="currentColor" style={{ width: 14, height: 14 }}>
+    <polygon points="5 3 19 12 5 21 5 3" />
+  </svg>
+)
+const IcArrow = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" style={{ width: 13, height: 13 }}>
+    <path d="M5 12h14M12 5l7 7-7 7" />
+  </svg>
+)
 
-function StatCard({ label, value, unit, icon, variant, delay }: {
-  label: string; value: string | number; unit: string; icon: string
-  variant: 'purple' | 'orange' | 'green' | 'blue'; delay: number
+/* ─── Mini sparkline chart ───────────────────────── */
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+  const W = 54, H = 26
+  const max = Math.max(...data, 1)
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * W
+    const y = H - (v / max) * (H - 4) - 2
+    return `${x.toFixed(1)},${y.toFixed(1)}`
+  }).join(' ')
+  const id = color.replace(/[^a-z0-9]/gi, '')
+  return (
+    <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible', flexShrink: 0 }}>
+      <defs>
+        <linearGradient id={`sg${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.28" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon fill={`url(#sg${id})`} points={`0,${H} ${pts} ${W},${H}`} />
+      <polyline fill="none" stroke={color} strokeWidth="1.6" strokeLinecap="round"
+        strokeLinejoin="round" points={pts} opacity="0.75" />
+      {/* Last dot */}
+      <circle cx={(W).toFixed(1)} cy={data.length > 0 ? (H - (data[data.length - 1] / max) * (H - 4) - 2).toFixed(1) : H / 2} r="2.5" fill={color} />
+    </svg>
+  )
+}
+
+/* ─── Stat Card ──────────────────────────────────── */
+function StatCard({
+  label, value, unit, Icon, color, bg, delay
+}: {
+  label: string; value: string | number; unit: string
+  Icon: () => JSX.Element; color: string; bg: string; delay: number
 }) {
-  const variants = {
-    purple: { text: '#a89af8', bg: 'stat-purple', dot: '#7c6df0' },
-    orange: { text: '#fb923c', bg: 'stat-orange', dot: '#fb923c' },
-    green:  { text: '#34d399', bg: 'stat-green',  dot: '#34d399' },
-    blue:   { text: '#38bdf8', bg: 'stat-blue',   dot: '#38bdf8' },
-  }
-  const v = variants[variant]
+  const num = typeof value === 'string' ? parseInt(value.replace(/\D/g, '')) || 0 : value
+  const sparkData = num > 0
+    ? [Math.round(num * 0.4), Math.round(num * 0.6), Math.round(num * 0.5), Math.round(num * 0.8), Math.round(num * 0.7), Math.round(num * 0.9), num]
+    : [1, 2, 1, 3, 2, 2, 3]
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay, duration: 0.4 }}
-      className={`${v.bg} rounded-2xl p-5 relative overflow-hidden`}
-      style={{ border: '1px solid rgba(255,255,255,0.06)' }}
-      whileHover={{ y: -3, transition: { duration: 0.2 } }}
+      transition={{ delay, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+      whileHover={{ y: -4, transition: { duration: 0.18 } }}
+      style={{
+        background: 'rgba(10,10,22,0.92)',
+        border: '1px solid rgba(255,255,255,0.07)',
+        borderRadius: 20, padding: '20px 20px 18px',
+        position: 'relative', overflow: 'hidden', cursor: 'default',
+      }}
     >
+      {/* Top accent bar */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: 2,
+        background: `linear-gradient(90deg, transparent 0%, ${color}88 40%, ${color}88 60%, transparent 100%)`,
+      }} />
       {/* Corner glow */}
-      <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full opacity-30 blur-2xl pointer-events-none"
-        style={{ background: v.dot }} />
+      <div style={{
+        position: 'absolute', top: -35, right: -35, width: 100, height: 100,
+        borderRadius: '50%', background: color, opacity: 0.13, filter: 'blur(32px)',
+        pointerEvents: 'none',
+      }} />
 
-      <div className="flex items-start justify-between mb-4">
-        <span className="text-[10px] font-bold uppercase tracking-[0.15em]" style={{ color: 'var(--c-muted)' }}>
-          {label}
-        </span>
-        <span className="text-xl">{icon}</span>
-      </div>
-      <div className="flex items-end gap-1.5">
-        <span className="text-3xl font-black leading-none" style={{ color: v.text }}>{value}</span>
-        <span className="text-xs font-medium mb-0.5" style={{ color: 'var(--c-faint)' }}>{unit}</span>
+      {/* Icon + sparkline */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: 12,
+          background: bg, border: `1px solid ${color}28`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color, flexShrink: 0,
+        }}>
+          <Icon />
+        </div>
+        <Sparkline data={sparkData} color={color} />
       </div>
 
-      {/* Bottom bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-0.5 opacity-40"
-        style={{ background: `linear-gradient(90deg, transparent, ${v.dot}, transparent)` }} />
+      {/* Value */}
+      <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-0.035em', lineHeight: 1, color }}>
+        {value}
+      </div>
+      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.25)', marginTop: 3 }}>{unit}</div>
+      <div style={{
+        fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+        letterSpacing: '0.13em', color: 'rgba(255,255,255,0.2)', marginTop: 10,
+      }}>
+        {label}
+      </div>
     </motion.div>
   )
 }
 
+/* ─── Dashboard ──────────────────────────────────── */
 export default function Dashboard() {
   const navigate = useNavigate()
   const { sessions } = useWorkoutStore()
@@ -79,69 +159,144 @@ export default function Dashboard() {
 
   const activeDays = weekDays.filter(d => d.active).length
   const recentSessions = sessions.slice(0, 5)
+  const pct = Math.round((activeDays / 5) * 100)
 
   return (
-    <div>
-      <Header
-        title={`Xin chào, ${displayName} 👋`}
-        subtitle={now.toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-        action={{ label: '+ Tập ngay', onClick: () => navigate('/live') }}
-      />
+    <div style={{ paddingBottom: 24 }}>
 
-      {/* Stats — 4 col */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Buổi tập tháng" value={thisMonth.length}                       unit="buổi" icon="🏋️" variant="purple" delay={0} />
-        <StatCard label="Calo đốt"        value={totalCalories.toLocaleString('vi-VN')} unit="kcal"  icon="🔥" variant="orange" delay={1} />
-        <StatCard label="Tổng reps"       value={totalReps.toLocaleString('vi-VN')}     unit="reps"  icon="💪" variant="green"  delay={2} />
-        <StatCard label="Thời gian TB"    value={avgDuration}                           unit="phút"  icon="⏱️" variant="blue"   delay={3} />
+      {/* ══ HEADER ══ */}
+      <motion.div
+        initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}
+      >
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 5 }}>
+            <div style={{ width: 3, height: 26, borderRadius: 99, background: 'linear-gradient(180deg, #c084fc, #7c6df0)', flexShrink: 0 }} />
+            <h1 style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.025em', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ color: '#d8d8f0' }}>Xin chào,</span>
+              {' '}
+              <span style={{ background: 'linear-gradient(135deg, #a89af8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+                {displayName}
+              </span>
+              <span style={{ WebkitTextFillColor: 'initial', color: '#d8d8f0' }}>👋</span>
+            </h1>
+          </div>
+          <p style={{ fontSize: 12, color: '#30305a', paddingLeft: 15 }}>
+            {now.toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <motion.button
+            onClick={() => navigate('/live')}
+            whileTap={{ scale: 0.97 }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '10px 22px', borderRadius: 12, border: 'none', cursor: 'pointer',
+              background: 'linear-gradient(135deg, #7c6df0 0%, #a89af8 100%)',
+              boxShadow: '0 4px 20px rgba(124,109,240,0.42)',
+              color: 'white', fontSize: 13, fontWeight: 700,
+            }}
+          >
+            <IcPlay />
+            Tập ngay
+          </motion.button>
+
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 9,
+            padding: '7px 13px', borderRadius: 12,
+            background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)',
+          }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: 9,
+              background: 'linear-gradient(135deg, #7c6df0, #a89af8)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 12, fontWeight: 900, color: 'white', flexShrink: 0,
+            }}>
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#5858a0' }}>{displayName}</span>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* ══ STAT CARDS ══ */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 18 }}>
+        <StatCard label="Buổi tập tháng" value={thisMonth.length}                       unit="buổi" Icon={IcDumbbell} color="#a89af8" bg="rgba(124,109,240,0.14)" delay={0} />
+        <StatCard label="Calo đốt"        value={totalCalories.toLocaleString('vi-VN')} unit="kcal" Icon={IcFlame}    color="#fb923c" bg="rgba(251,146,60,0.13)"   delay={0.06} />
+        <StatCard label="Tổng reps"       value={totalReps.toLocaleString('vi-VN')}     unit="reps" Icon={IcMuscle}   color="#34d399" bg="rgba(52,211,153,0.13)"  delay={0.12} />
+        <StatCard label="Thời gian TB"    value={avgDuration}                           unit="phút" Icon={IcClock}    color="#38bdf8" bg="rgba(56,189,248,0.13)"   delay={0.18} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+      {/* ══ WEEKLY + LIVE AI ══ */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.65fr 1fr', gap: 16, marginBottom: 18 }}>
+
         {/* Weekly tracker */}
         <motion.div
-          className="lg:col-span-2 rounded-2xl p-6"
-          style={{ background: 'rgba(14,14,28,0.7)', border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(20px)' }}
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.22, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          style={{
+            background: 'rgba(10,10,22,0.92)', border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 22, padding: '22px 24px', position: 'relative', overflow: 'hidden',
+          }}
         >
-          <div className="flex items-center justify-between mb-5">
+          {/* Bg glow */}
+          <div style={{ position: 'absolute', top: -60, left: -20, width: 200, height: 200, borderRadius: '50%', background: 'rgba(124,109,240,0.1)', filter: 'blur(60px)', pointerEvents: 'none' }} />
+
+          {/* Header row */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20 }}>
             <div>
-              <h2 className="text-base font-bold" style={{ color: '#e8e8f8' }}>Tuần này</h2>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--c-faint)' }}>{activeDays}/5 ngày mục tiêu</p>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#d0d0f0', letterSpacing: '-0.01em' }}>Tuần này</div>
+              <div style={{ fontSize: 11, color: '#30305a', marginTop: 3 }}>{activeDays}/5 ngày mục tiêu</div>
             </div>
-            <div className="text-right">
-              <div className="text-2xl font-black" style={{ color: 'var(--c-accent2)' }}>
-                {Math.round((activeDays / 5) * 100)}%
+            <div style={{ textAlign: 'right' }}>
+              <div style={{
+                fontSize: 30, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1,
+                background: 'linear-gradient(135deg, #a89af8, #c084fc)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
+              }}>
+                {pct}%
               </div>
-              <p className="text-[10px]" style={{ color: 'var(--c-faint)' }}>hoàn thành</p>
+              <div style={{ fontSize: 10, color: '#30305a', marginTop: 2 }}>hoàn thành</div>
             </div>
           </div>
 
-          <div className="flex gap-2 justify-between mb-5">
+          {/* Day circles */}
+          <div style={{ display: 'flex', gap: 6, justifyContent: 'space-between', marginBottom: 18 }}>
             {weekDays.map((day, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-2">
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 7 }}>
                 <motion.div
-                  className="w-full aspect-square rounded-xl flex items-center justify-center text-xs font-bold relative overflow-hidden"
-                  style={
-                    day.active
-                      ? { background: 'linear-gradient(135deg, #7c6df0, #a89af8)', boxShadow: '0 4px 12px rgba(124,109,240,0.35)' }
-                      : day.isToday
-                      ? { background: 'rgba(124,109,240,0.08)', border: '1.5px dashed rgba(124,109,240,0.4)', color: 'var(--c-accent2)' }
-                      : { background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }
-                  }
-                  whileHover={{ scale: 1.05 }}
-                  initial={{ opacity: 0, scale: 0.8 }}
+                  initial={{ opacity: 0, scale: 0.7 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.35 + i * 0.04 }}
+                  transition={{ delay: 0.28 + i * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                  whileHover={{ scale: 1.1, transition: { duration: 0.15 } }}
+                  style={{
+                    width: 44, height: 44, borderRadius: '50%',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    ...(day.active ? {
+                      background: 'linear-gradient(135deg, #7c6df0, #a89af8)',
+                      boxShadow: '0 4px 16px rgba(124,109,240,0.5)',
+                    } : day.isToday ? {
+                      background: 'rgba(124,109,240,0.1)',
+                      border: '2px dashed rgba(124,109,240,0.5)',
+                    } : {
+                      background: 'rgba(255,255,255,0.03)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                    }),
+                  }}
                 >
-                  {day.active
-                    ? <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={3} className="w-4 h-4"><polyline points="20 6 9 17 4 12"/></svg>
-                    : day.isToday
-                    ? <span className="text-[10px] font-black" style={{ color: 'var(--c-accent2)' }}>●</span>
-                    : null
-                  }
+                  {day.active ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.8} strokeLinecap="round" style={{ width: 14, height: 14 }}>
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : day.isToday ? (
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#a89af8' }} />
+                  ) : null}
                 </motion.div>
-                <span className="text-[10px] font-semibold"
-                  style={{ color: day.isToday ? 'var(--c-accent)' : 'var(--c-faint)' }}>
+                <span style={{
+                  fontSize: 10, fontWeight: 700,
+                  color: day.isToday ? '#a89af8' : day.active ? '#6060a0' : '#25254a',
+                }}>
                   {day.day}
                 </span>
               </div>
@@ -149,41 +304,58 @@ export default function Dashboard() {
           </div>
 
           {/* Progress bar */}
-          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+          <div style={{ height: 4, borderRadius: 99, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
             <motion.div
-              className="h-full rounded-full progress-bar"
               initial={{ width: 0 }}
-              animate={{ width: `${Math.min(100, (activeDays / 5) * 100)}%` }}
-              transition={{ delay: 0.6, duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+              animate={{ width: `${Math.min(100, pct)}%` }}
+              transition={{ delay: 0.55, duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+              style={{
+                height: '100%', borderRadius: 99,
+                background: 'linear-gradient(90deg, #7c6df0, #a89af8, #c084fc)',
+                backgroundSize: '200% 100%',
+              }}
             />
           </div>
         </motion.div>
 
-        {/* Quick start */}
+        {/* Live AI Quick Start */}
         <motion.div
-          className="rounded-2xl p-6 flex flex-col relative overflow-hidden"
-          style={{ background: 'rgba(14,14,28,0.7)', border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(20px)' }}
-          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.28, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          style={{
+            background: 'rgba(10,10,22,0.92)', border: '1px solid rgba(255,255,255,0.07)',
+            borderRadius: 22, padding: '22px', position: 'relative', overflow: 'hidden',
+            display: 'flex', flexDirection: 'column',
+          }}
         >
-          {/* BG glow */}
-          <div className="absolute top-0 right-0 w-40 h-40 rounded-full opacity-15 blur-3xl pointer-events-none"
-            style={{ background: '#7c6df0', transform: 'translate(40%,-40%)' }} />
+          {/* Bg glow */}
+          <div style={{ position: 'absolute', top: -30, right: -20, width: 160, height: 160, borderRadius: '50%', background: 'rgba(124,109,240,0.14)', filter: 'blur(50px)', pointerEvents: 'none' }} />
 
-          <div className="flex-1 relative z-10">
-            <div className="flex items-center gap-1.5 mb-2">
-              <motion.span className="w-1.5 h-1.5 rounded-full bg-[#34d399]"
-                animate={{ opacity: [1, 0.3, 1] }} transition={{ duration: 2, repeat: Infinity }} />
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#34d399' }}>AI Ready</span>
+          <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
+            {/* AI badge */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+              <motion.div
+                animate={{ opacity: [1, 0.3, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                style={{ width: 7, height: 7, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 8px rgba(52,211,153,0.8)', flexShrink: 0 }}
+              />
+              <span style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.16em', color: '#34d399' }}>AI Ready</span>
             </div>
-            <h2 className="text-base font-bold mb-1" style={{ color: '#e8e8f8' }}>Live AI Pose</h2>
-            <p className="text-xs mb-4" style={{ color: 'var(--c-muted)' }}>Phân tích tư thế real-time qua camera</p>
 
-            <div className="grid grid-cols-3 gap-1.5 mb-4">
+            <div style={{ fontSize: 15, fontWeight: 800, color: '#d0d0f0', marginBottom: 5, letterSpacing: '-0.01em' }}>Live AI Pose</div>
+            <div style={{ fontSize: 12, color: '#404075', marginBottom: 16, lineHeight: 1.5 }}>
+              Phân tích tư thế real-time qua camera
+            </div>
+
+            {/* Exercise tiles */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 18 }}>
               {[{ e: '🏋️', n: 'Squat' }, { e: '💪', n: 'Push-up' }, { e: '🧱', n: 'Plank' }].map(ex => (
-                <div key={ex.n} className="rounded-xl p-2 text-center"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="text-lg mb-0.5">{ex.e}</div>
-                  <p className="text-[9px] font-medium" style={{ color: 'var(--c-faint)' }}>{ex.n}</p>
+                <div key={ex.n} style={{
+                  borderRadius: 12, padding: '10px 6px', textAlign: 'center',
+                  background: 'rgba(255,255,255,0.035)', border: '1px solid rgba(255,255,255,0.07)',
+                }}>
+                  <div style={{ fontSize: 20, marginBottom: 4 }}>{ex.e}</div>
+                  <div style={{ fontSize: 9, fontWeight: 600, color: '#404075' }}>{ex.n}</div>
                 </div>
               ))}
             </div>
@@ -191,79 +363,111 @@ export default function Dashboard() {
 
           <motion.button
             onClick={() => navigate('/live')}
-            className="w-full py-3 rounded-xl text-sm font-bold text-white btn-primary relative z-10"
             whileTap={{ scale: 0.97 }}
+            style={{
+              width: '100%', padding: '12px 0', borderRadius: 12, border: 'none', cursor: 'pointer',
+              background: 'linear-gradient(135deg, #7c6df0 0%, #a89af8 100%)',
+              boxShadow: '0 4px 18px rgba(124,109,240,0.4)',
+              color: 'white', fontSize: 13, fontWeight: 700,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              position: 'relative', zIndex: 1,
+            }}
           >
-            Mở Live AI →
+            <IcPlay />
+            Mở Live AI
+            <IcArrow />
           </motion.button>
         </motion.div>
       </div>
 
-      {/* Recent sessions */}
+      {/* ══ RECENT SESSIONS ══ */}
       <motion.div
-        className="rounded-2xl p-6"
-        style={{ background: 'rgba(14,14,28,0.7)', border: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(20px)' }}
-        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.34, duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        style={{
+          background: 'rgba(10,10,22,0.92)', border: '1px solid rgba(255,255,255,0.07)',
+          borderRadius: 22, padding: '22px 24px',
+        }}
       >
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-base font-bold" style={{ color: '#e8e8f8' }}>Lịch sử gần đây</h2>
-          <button onClick={() => navigate('/progress')}
-            className="text-xs font-semibold transition-colors duration-200 hover:text-[#a89af8]"
-            style={{ color: 'var(--c-accent)' }}>
-            Xem tất cả →
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#d0d0f0', letterSpacing: '-0.01em' }}>Lịch sử gần đây</div>
+          <button
+            onClick={() => navigate('/progress')}
+            style={{
+              fontSize: 12, fontWeight: 600, color: '#5858a0', background: 'none',
+              border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#a89af8')}
+            onMouseLeave={e => (e.currentTarget.style.color = '#5858a0')}
+          >
+            Xem tất cả <IcArrow />
           </button>
         </div>
 
         {recentSessions.length === 0 ? (
-          <div className="text-center py-12">
+          <div style={{ textAlign: 'center', padding: '32px 0 24px' }}>
             <motion.div
-              className="text-5xl mb-3 inline-block"
-              animate={{ y: [0, -8, 0] }}
+              animate={{ y: [0, -10, 0] }}
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            >🚀</motion.div>
-            <p className="text-sm font-semibold mb-1" style={{ color: 'var(--c-muted)' }}>Chưa có buổi tập nào</p>
-            <p className="text-xs mb-5" style={{ color: 'var(--c-faint)' }}>Hãy bắt đầu hành trình của bạn!</p>
+              style={{ fontSize: 48, marginBottom: 12, display: 'inline-block' }}
+            >
+              🚀
+            </motion.div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#5858a0', marginBottom: 5 }}>Chưa có buổi tập nào</div>
+            <div style={{ fontSize: 12, color: '#2e2e58', marginBottom: 18 }}>Bắt đầu hành trình fitness của bạn ngay hôm nay!</div>
             <motion.button
               onClick={() => navigate('/live')}
-              className="px-5 py-2.5 rounded-xl text-sm font-bold text-white btn-primary"
               whileTap={{ scale: 0.97 }}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                padding: '10px 24px', borderRadius: 12, border: 'none', cursor: 'pointer',
+                background: 'linear-gradient(135deg, #7c6df0, #a89af8)',
+                boxShadow: '0 4px 18px rgba(124,109,240,0.4)',
+                color: 'white', fontSize: 13, fontWeight: 700,
+              }}
             >
-              Bắt đầu ngay
+              <IcPlay /> Bắt đầu ngay
             </motion.button>
           </div>
         ) : (
-          <div className="space-y-2.5">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {recentSessions.map((session, idx) => (
               <motion.div
                 key={idx}
-                className="flex items-center gap-4 p-4 rounded-xl transition-all duration-200"
-                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}
-                initial={{ opacity: 0, x: -10 }}
+                initial={{ opacity: 0, x: -12 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.45 + idx * 0.05 }}
-                whileHover={{ borderColor: 'rgba(124,109,240,0.25)', background: 'rgba(124,109,240,0.05)' }}
+                transition={{ delay: 0.4 + idx * 0.05, ease: [0.22, 1, 0.36, 1] }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 14, padding: '13px 16px',
+                  borderRadius: 14, background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)',
+                  cursor: 'default', transition: 'border-color 0.2s, background 0.2s',
+                }}
+                whileHover={{ borderColor: 'rgba(124,109,240,0.25)', backgroundColor: 'rgba(124,109,240,0.06)' } as never}
               >
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                  style={{ background: 'rgba(124,109,240,0.12)', border: '1px solid rgba(124,109,240,0.2)' }}>
+                <div style={{
+                  width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+                  background: 'rgba(124,109,240,0.12)', border: '1px solid rgba(124,109,240,0.2)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20,
+                }}>
                   {session.exercises[0]?.exercise.emoji || '💪'}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate" style={{ color: '#e8e8f8' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#d0d0f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {session.exercises.map(e => e.exercise.nameVi).join(' · ')}
-                  </p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--c-faint)' }}>
+                  </div>
+                  <div style={{ fontSize: 11, color: '#2e2e58', marginTop: 2 }}>
                     {new Date(session.date).toLocaleDateString('vi-VN', { weekday: 'short', day: 'numeric', month: 'numeric' })}
-                  </p>
+                  </div>
                 </div>
-                <div className="flex gap-5 flex-shrink-0">
+                <div style={{ display: 'flex', gap: 20, flexShrink: 0 }}>
                   {[
-                    { label: 'Thời gian', val: `${session.duration}p`, color: '#e8e8f8' },
-                    { label: 'Calo',      val: `${session.calories}`,  color: '#fb923c' },
-                    { label: 'Reps',      val: `${session.totalReps}`, color: '#34d399' },
+                    { label: 'Thời gian', val: `${session.duration}p`, color: '#d0d0f0' },
+                    { label: 'Calo', val: `${session.calories}`, color: '#fb923c' },
+                    { label: 'Reps', val: `${session.totalReps}`, color: '#34d399' },
                   ].map(stat => (
-                    <div key={stat.label} className="text-right">
-                      <p className="text-[10px]" style={{ color: 'var(--c-faint)' }}>{stat.label}</p>
-                      <p className="text-sm font-bold" style={{ color: stat.color }}>{stat.val}</p>
+                    <div key={stat.label} style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: 10, color: '#2e2e58' }}>{stat.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: stat.color, marginTop: 1 }}>{stat.val}</div>
                     </div>
                   ))}
                 </div>

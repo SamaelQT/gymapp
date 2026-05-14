@@ -1,35 +1,25 @@
 import { useState } from 'react'
 import { Header } from '../components/layout/Header'
-import { Card } from '../components/ui/Card'
-import { Button } from '../components/ui/Button'
-import { Badge } from '../components/ui/Badge'
 import { useUserStore } from '../store/useUserStore'
 import type { Profile as ProfileType, Goal, ActivityLevel, Gender } from '../types'
 import { calculateTDEE } from '../lib/nutrition'
+import { motion } from 'framer-motion'
 
-const GOAL_LABELS: Record<Goal, string> = {
-  lose_fat: '🔥 Giảm mỡ',
-  gain_muscle: '💪 Tăng cơ',
-  maintain: '⚖️ Duy trì',
-}
-
+const GOAL_LABELS: Record<Goal, string> = { lose_fat: '🔥 Giảm mỡ', gain_muscle: '💪 Tăng cơ', maintain: '⚖️ Duy trì' }
+const GOAL_COLORS: Record<Goal, string> = { lose_fat: '#fb923c', gain_muscle: '#34d399', maintain: '#38bdf8' }
 const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
-  sedentary: 'Ít vận động',
-  light: 'Nhẹ (1-3 buổi/tuần)',
-  moderate: 'Vừa (3-5 buổi/tuần)',
-  active: 'Nhiều (6-7 buổi/tuần)',
+  sedentary:   'Ít vận động',
+  light:       'Nhẹ (1-3 buổi/tuần)',
+  moderate:    'Vừa (3-5 buổi/tuần)',
+  active:      'Nhiều (6-7 buổi/tuần)',
   very_active: 'Rất nhiều (2 lần/ngày)',
 }
 
-const defaultProfile: ProfileType = {
-  name: '',
-  age: 25,
-  weight: 70,
-  height: 170,
-  gender: 'male',
-  goal: 'maintain',
-  activity_level: 'moderate',
-}
+const defaultProfile: ProfileType = { name: '', age: 25, weight: 70, height: 170, gender: 'male', goal: 'maintain', activity_level: 'moderate' }
+
+const cardBase: React.CSSProperties = { background: 'rgba(10,10,22,0.92)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 20, padding: 22 }
+const inputStyle: React.CSSProperties = { width: '100%', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.09)', borderRadius: 11, padding: '10px 14px', fontSize: 13, color: '#d0d0f0', outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.15s' }
+const labelStyle: React.CSSProperties = { display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#2e2e58', marginBottom: 7 }
 
 export default function Profile() {
   const { profile, setProfile } = useUserStore()
@@ -39,211 +29,239 @@ export default function Profile() {
 
   const handleSave = () => {
     if (!form.name.trim()) return
-    setProfile(form)
-    setEditing(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+    setProfile(form); setEditing(false); setSaved(true)
+    setTimeout(() => setSaved(false), 2500)
   }
 
   const tdee = profile ? calculateTDEE(profile) : null
-
-  const inputCls = 'w-full bg-[#0a0a0f] border border-[#22223a] rounded-lg px-3 py-2 text-sm text-[#f0f0ff] outline-none focus:border-[#7c6ff7] transition-colors'
-  const labelCls = 'block text-xs text-[#8888aa] mb-1'
 
   return (
     <div>
       <Header title="Hồ Sơ" subtitle="Thông tin cá nhân và cài đặt" />
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        {/* Avatar & summary */}
-        <Card className="flex flex-col items-center text-center">
-          <div className="w-20 h-20 rounded-full bg-[#7c6ff7] flex items-center justify-center text-3xl font-black text-white mb-4">
-            {profile?.name?.charAt(0)?.toUpperCase() || '?'}
+      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 16, marginBottom: 16 }}>
+        {/* Avatar card */}
+        <div style={{ ...cardBase, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+          {/* Avatar */}
+          <div style={{ position: 'relative', marginBottom: 16 }}>
+            <div style={{
+              width: 80, height: 80, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #7c6df0, #a89af8)',
+              boxShadow: '0 0 30px rgba(124,109,240,0.4)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 30, fontWeight: 900, color: 'white',
+            }}>
+              {profile?.name?.charAt(0)?.toUpperCase() || '?'}
+            </div>
+            <div style={{
+              position: 'absolute', bottom: 2, right: 2, width: 18, height: 18, borderRadius: '50%',
+              background: '#34d399', border: '2px solid #06060f',
+              boxShadow: '0 0 8px rgba(52,211,153,0.7)',
+            }}/>
           </div>
+
           {profile ? (
             <>
-              <h2 className="text-xl font-bold text-[#f0f0ff]">{profile.name}</h2>
-              <p className="text-sm text-[#8888aa] mb-4">{profile.age} tuổi · {profile.gender === 'male' ? 'Nam' : 'Nữ'}</p>
-              <div className="grid grid-cols-2 gap-3 w-full mb-4">
+              <div style={{ fontSize: 18, fontWeight: 900, color: '#d0d0f0', letterSpacing: '-0.02em', marginBottom: 4 }}>{profile.name}</div>
+              <div style={{ fontSize: 12, color: '#3a3a6a', marginBottom: 18 }}>{profile.age} tuổi · {profile.gender === 'male' ? 'Nam' : 'Nữ'}</div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, width: '100%', marginBottom: 16 }}>
                 {[
-                  { label: 'Cân nặng', value: `${profile.weight} kg` },
-                  { label: 'Chiều cao', value: `${profile.height} cm` },
-                  { label: 'TDEE', value: `${tdee} kcal` },
-                  { label: 'Mục tiêu', value: GOAL_LABELS[profile.goal].split(' ')[1] },
-                ].map((item) => (
-                  <div key={item.label} className="bg-[#1a1a28] rounded-lg p-3">
-                    <p className="text-xs text-[#555570]">{item.label}</p>
-                    <p className="text-sm font-bold text-[#f0f0ff]">{item.value}</p>
+                  { label: 'Cân nặng', val: `${profile.weight} kg` },
+                  { label: 'Chiều cao', val: `${profile.height} cm` },
+                  { label: 'TDEE',     val: `${tdee} kcal` },
+                  { label: 'Mục tiêu', val: GOAL_LABELS[profile.goal].split(' ')[1] },
+                ].map(({ label, val }) => (
+                  <div key={label} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: '10px 8px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 10, color: '#2e2e58', marginBottom: 4 }}>{label}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#d0d0f0' }}>{val}</div>
                   </div>
                 ))}
               </div>
-              <Badge variant="accent">{GOAL_LABELS[profile.goal]}</Badge>
+
+              <span style={{
+                padding: '5px 14px', borderRadius: 99, fontSize: 11, fontWeight: 700,
+                background: `${GOAL_COLORS[profile.goal]}18`, border: `1px solid ${GOAL_COLORS[profile.goal]}40`,
+                color: GOAL_COLORS[profile.goal],
+              }}>
+                {GOAL_LABELS[profile.goal]}
+              </span>
             </>
           ) : (
             <div>
-              <p className="text-[#8888aa] text-sm mb-4">Chưa có thông tin hồ sơ</p>
-              <p className="text-xs text-[#555570]">Điền form bên cạnh để bắt đầu</p>
+              <div style={{ color: '#3a3a6a', fontSize: 13, marginBottom: 6 }}>Chưa có thông tin hồ sơ</div>
+              <div style={{ color: '#2e2e58', fontSize: 11 }}>Điền form bên cạnh để bắt đầu</div>
             </div>
           )}
-        </Card>
+        </div>
 
         {/* Edit form */}
-        <Card className="xl:col-span-2">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-sm font-semibold text-[#f0f0ff]">Thông tin cá nhân</h2>
+        <div style={cardBase}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: '#d0d0f0' }}>Thông tin cá nhân</div>
             {profile && !editing && (
-              <Button size="sm" variant="secondary" onClick={() => { setEditing(true); setForm(profile) }}>
+              <button onClick={() => { setEditing(true); setForm(profile) }} style={{ padding: '7px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.09)', background: 'rgba(255,255,255,0.03)', color: '#5858a0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                 ✏️ Chỉnh sửa
-              </Button>
+              </button>
             )}
           </div>
 
           {editing ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className={labelCls}>Họ và tên *</label>
-                  <input
-                    type="text"
-                    className={inputCls}
-                    placeholder="Nguyễn Văn A"
-                    value={form.name}
-                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                  />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Name (full width) */}
+              <div>
+                <label style={labelStyle}>Họ và tên *</label>
+                <input type="text" style={inputStyle} placeholder="Nguyễn Văn A" value={form.name}
+                  onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))}
+                  onFocus={e => (e.target.style.borderColor = 'rgba(124,109,240,0.5)')}
+                  onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.09)')}/>
+              </div>
+
+              {/* Age + Gender */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>Tuổi</label>
+                  <input type="number" style={inputStyle} value={form.age}
+                    onChange={(e) => setForm(p => ({ ...p, age: Number(e.target.value) }))}
+                    onFocus={e => (e.target.style.borderColor = 'rgba(124,109,240,0.5)')}
+                    onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.09)')}/>
                 </div>
                 <div>
-                  <label className={labelCls}>Tuổi</label>
-                  <input
-                    type="number"
-                    className={inputCls}
-                    value={form.age}
-                    onChange={(e) => setForm((p) => ({ ...p, age: Number(e.target.value) }))}
-                  />
-                </div>
-                <div>
-                  <label className={labelCls}>Giới tính</label>
-                  <select
-                    className={inputCls}
-                    value={form.gender}
-                    onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value as Gender }))}
-                  >
+                  <label style={labelStyle}>Giới tính</label>
+                  <select style={inputStyle} value={form.gender}
+                    onChange={(e) => setForm(p => ({ ...p, gender: e.target.value as Gender }))}>
                     <option value="male">Nam</option>
                     <option value="female">Nữ</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Weight + Height */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label className={labelCls}>Cân nặng (kg)</label>
-                  <input
-                    type="number"
-                    className={inputCls}
-                    value={form.weight}
-                    onChange={(e) => setForm((p) => ({ ...p, weight: Number(e.target.value) }))}
-                  />
+                  <label style={labelStyle}>Cân nặng (kg)</label>
+                  <input type="number" style={inputStyle} value={form.weight}
+                    onChange={(e) => setForm(p => ({ ...p, weight: Number(e.target.value) }))}
+                    onFocus={e => (e.target.style.borderColor = 'rgba(124,109,240,0.5)')}
+                    onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.09)')}/>
                 </div>
                 <div>
-                  <label className={labelCls}>Chiều cao (cm)</label>
-                  <input
-                    type="number"
-                    className={inputCls}
-                    value={form.height}
-                    onChange={(e) => setForm((p) => ({ ...p, height: Number(e.target.value) }))}
-                  />
+                  <label style={labelStyle}>Chiều cao (cm)</label>
+                  <input type="number" style={inputStyle} value={form.height}
+                    onChange={(e) => setForm(p => ({ ...p, height: Number(e.target.value) }))}
+                    onFocus={e => (e.target.style.borderColor = 'rgba(124,109,240,0.5)')}
+                    onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.09)')}/>
                 </div>
               </div>
 
+              {/* Goal */}
               <div>
-                <label className={labelCls}>Mục tiêu</label>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['lose_fat', 'gain_muscle', 'maintain'] as Goal[]).map((g) => (
-                    <button
-                      key={g}
-                      onClick={() => setForm((p) => ({ ...p, goal: g }))}
-                      className={`p-3 rounded-lg border text-xs font-medium transition-all ${
-                        form.goal === g
-                          ? 'border-[#7c6ff7] bg-[#7c6ff7]/20 text-[#9d92ff]'
-                          : 'border-[#22223a] bg-[#1a1a28] text-[#8888aa] hover:border-[#7c6ff7]/50'
-                      }`}
-                    >
-                      {GOAL_LABELS[g]}
-                    </button>
-                  ))}
+                <label style={labelStyle}>Mục tiêu</label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                  {(['lose_fat', 'gain_muscle', 'maintain'] as Goal[]).map((g) => {
+                    const active = form.goal === g
+                    const color = GOAL_COLORS[g]
+                    return (
+                      <button key={g} onClick={() => setForm(p => ({ ...p, goal: g }))} style={{
+                        padding: '10px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: 'none',
+                        background: active ? `${color}16` : 'rgba(255,255,255,0.025)',
+                        border: `1px solid ${active ? color + '50' : 'rgba(255,255,255,0.07)'}`,
+                        color: active ? color : '#3a3a6a', transition: 'all 0.15s',
+                      } as React.CSSProperties}>
+                        {GOAL_LABELS[g]}
+                      </button>
+                    )
+                  })}
                 </div>
               </div>
 
+              {/* Activity level */}
               <div>
-                <label className={labelCls}>Mức độ hoạt động</label>
-                <select
-                  className={inputCls}
-                  value={form.activity_level}
-                  onChange={(e) => setForm((p) => ({ ...p, activity_level: e.target.value as ActivityLevel }))}
-                >
+                <label style={labelStyle}>Mức độ hoạt động</label>
+                <select style={inputStyle} value={form.activity_level}
+                  onChange={(e) => setForm(p => ({ ...p, activity_level: e.target.value as ActivityLevel }))}>
                   {(Object.entries(ACTIVITY_LABELS) as [ActivityLevel, string][]).map(([k, v]) => (
                     <option key={k} value={k}>{v}</option>
                   ))}
                 </select>
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <Button onClick={handleSave} disabled={!form.name.trim()} className="flex-1">
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
+                <button onClick={handleSave} disabled={!form.name.trim()} style={{
+                  flex: 1, padding: '11px 0', borderRadius: 12, border: 'none',
+                  background: 'linear-gradient(135deg, #7c6df0, #a89af8)',
+                  boxShadow: '0 4px 18px rgba(124,109,240,0.4)',
+                  color: 'white', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: !form.name.trim() ? 0.5 : 1,
+                }}>
                   💾 Lưu hồ sơ
-                </Button>
+                </button>
                 {profile && (
-                  <Button variant="secondary" onClick={() => setEditing(false)}>Hủy</Button>
+                  <button onClick={() => setEditing(false)} style={{ padding: '11px 18px', borderRadius: 12, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', color: '#5858a0', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                    Hủy
+                  </button>
                 )}
               </div>
 
               {saved && (
-                <div className="text-center text-green-400 text-sm font-medium">
+                <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                  style={{ textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#34d399' }}>
                   ✅ Hồ sơ đã được lưu!
-                </div>
+                </motion.div>
               )}
             </div>
           ) : (
             profile && (
-              <div className="space-y-4">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                 {[
-                  { label: 'Họ và tên', value: profile.name },
-                  { label: 'Tuổi', value: `${profile.age} tuổi` },
-                  { label: 'Giới tính', value: profile.gender === 'male' ? 'Nam' : 'Nữ' },
-                  { label: 'Cân nặng', value: `${profile.weight} kg` },
-                  { label: 'Chiều cao', value: `${profile.height} cm` },
-                  { label: 'Mục tiêu', value: GOAL_LABELS[profile.goal] },
-                  { label: 'Hoạt động', value: ACTIVITY_LABELS[profile.activity_level] },
-                  { label: 'TDEE', value: `${tdee} kcal/ngày` },
-                ].map((item) => (
-                  <div key={item.label} className="flex justify-between py-2 border-b border-[#22223a]">
-                    <span className="text-sm text-[#8888aa]">{item.label}</span>
-                    <span className="text-sm font-medium text-[#f0f0ff]">{item.value}</span>
+                  { label: 'Họ và tên',    value: profile.name },
+                  { label: 'Tuổi',         value: `${profile.age} tuổi` },
+                  { label: 'Giới tính',    value: profile.gender === 'male' ? 'Nam' : 'Nữ' },
+                  { label: 'Cân nặng',     value: `${profile.weight} kg` },
+                  { label: 'Chiều cao',    value: `${profile.height} cm` },
+                  { label: 'Mục tiêu',     value: GOAL_LABELS[profile.goal] },
+                  { label: 'Hoạt động',    value: ACTIVITY_LABELS[profile.activity_level] },
+                  { label: 'TDEE',         value: `${tdee} kcal/ngày` },
+                ].map((item, i, arr) => (
+                  <div key={item.label} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '12px 0', borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                  }}>
+                    <span style={{ fontSize: 12, color: '#3a3a6a' }}>{item.label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#d0d0f0' }}>{item.value}</span>
                   </div>
                 ))}
               </div>
             )
           )}
-        </Card>
+        </div>
       </div>
 
       {/* App info */}
-      <Card className="mt-5">
-        <h2 className="text-sm font-semibold text-[#f0f0ff] mb-3">Về FitForge</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div style={cardBase}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: '#d0d0f0', marginBottom: 16 }}>Về FitForge</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
           {[
-            { icon: '🤖', title: 'Live AI Pose', desc: 'Phân tích tư thế real-time' },
-            { icon: '💪', title: 'Thư viện bài tập', desc: '6 bài tập + 9 chương trình' },
-            { icon: '🥗', title: 'Dinh dưỡng AI', desc: 'Gợi ý từ Gemini API' },
-            { icon: '📈', title: 'Theo dõi tiến độ', desc: 'Charts & thành tích' },
+            { emoji: '🤖', title: 'Live AI Pose',      desc: 'Phân tích tư thế real-time', color: '#a89af8' },
+            { emoji: '💪', title: 'Thư viện bài tập',  desc: '6 bài tập + 9 chương trình', color: '#34d399' },
+            { emoji: '🥗', title: 'Dinh dưỡng AI',      desc: 'Gợi ý từ Gemini API',       color: '#fb923c' },
+            { emoji: '📈', title: 'Theo dõi tiến độ',  desc: 'Charts & thành tích',        color: '#38bdf8' },
           ].map((f) => (
-            <div key={f.title} className="text-center p-4 bg-[#1a1a28] rounded-xl border border-[#22223a]">
-              <div className="text-3xl mb-2">{f.icon}</div>
-              <p className="text-sm font-medium text-[#f0f0ff]">{f.title}</p>
-              <p className="text-xs text-[#555570] mt-1">{f.desc}</p>
+            <div key={f.title} style={{
+              padding: '16px 14px', borderRadius: 16, textAlign: 'center',
+              background: `${f.color}0d`, border: `1px solid ${f.color}28`,
+            }}>
+              <div style={{ fontSize: 28, marginBottom: 8 }}>{f.emoji}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#d0d0f0', marginBottom: 4 }}>{f.title}</div>
+              <div style={{ fontSize: 11, color: '#2e2e58' }}>{f.desc}</div>
             </div>
           ))}
         </div>
-        <div className="mt-4 pt-4 border-t border-[#22223a] flex items-center justify-between text-xs text-[#555570]">
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#1e1e3a' }}>
           <span>FitForge v1.0 · React + Vite + MediaPipe</span>
           <span>Built with ❤️</span>
         </div>
-      </Card>
+      </div>
     </div>
   )
 }

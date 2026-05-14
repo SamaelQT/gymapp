@@ -1,56 +1,88 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { Header } from '../components/layout/Header'
-import { Button } from '../components/ui/Button'
-import { Card } from '../components/ui/Card'
-import { Badge } from '../components/ui/Badge'
 import { EXERCISES } from '../data/exercises'
 import { analyzeExercise } from '../lib/poseAnalyzer'
 import type { Exercise, ExerciseType, RepState, PoseFeedback } from '../types'
 import { useWorkoutStore } from '../store/useWorkoutStore'
 
 declare global {
-  interface Window {
-    Pose: any
-    Camera: any
-    drawConnectors: any
-    drawLandmarks: any
-    POSE_CONNECTIONS: any
-  }
+  interface Window { Pose: any; Camera: any; drawConnectors: any; drawLandmarks: any; POSE_CONNECTIONS: any }
 }
 
 const initialRepState: RepState = { count: 0, phase: 'idle', score: 100, feedback: [] }
 
+/* ─── Inline button ─── */
+const Btn = ({
+  children, onClick, disabled = false, danger = false, full = false
+}: {
+  children: React.ReactNode; onClick?: () => void; disabled?: boolean; danger?: boolean; full?: boolean
+}) => (
+  <button
+    onClick={onClick}
+    disabled={disabled}
+    style={{
+      width: full ? '100%' : undefined,
+      padding: '11px 20px', borderRadius: 12, border: 'none',
+      cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
+      background: danger
+        ? 'linear-gradient(135deg, #7f1d1d, #ef4444)'
+        : 'linear-gradient(135deg, #7c6df0, #a89af8)',
+      boxShadow: danger
+        ? '0 4px 18px rgba(239,68,68,0.35)'
+        : '0 4px 18px rgba(124,109,240,0.4)',
+      color: 'white', fontSize: 13, fontWeight: 700,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+      transition: 'opacity 0.15s',
+    }}
+  >
+    {children}
+  </button>
+)
+
+/* ─── Feedback item ─── */
 function FeedbackItem({ item }: { item: PoseFeedback }) {
-  const colors = {
-    success: 'border-green-500/40 bg-green-500/10 text-green-400',
-    warning: 'border-yellow-500/40 bg-yellow-500/10 text-yellow-400',
-    error: 'border-red-500/40 bg-red-500/10 text-red-400',
+  const styles = {
+    success: { bg: 'rgba(52,211,153,0.08)', border: 'rgba(52,211,153,0.25)', color: '#34d399' },
+    warning: { bg: 'rgba(251,191,36,0.08)', border: 'rgba(251,191,36,0.25)', color: '#fbbf24' },
+    error:   { bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.25)', color: '#f87171' },
   }
+  const s = styles[item.type]
   return (
-    <div className={`px-3 py-2 rounded-lg border text-xs font-medium ${colors[item.type]}`}>
+    <div style={{
+      padding: '8px 12px', borderRadius: 10, fontSize: 12, fontWeight: 500,
+      background: s.bg, border: `1px solid ${s.border}`, color: s.color,
+    }}>
       {item.message}
     </div>
   )
 }
 
+/* ─── Score bar ─── */
 function ScoreBar({ score }: { score: number }) {
-  const color = score >= 80 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444'
+  const color = score >= 80 ? '#34d399' : score >= 50 ? '#fbbf24' : '#f87171'
   return (
     <div>
-      <div className="flex justify-between text-xs mb-1">
-        <span className="text-[#8888aa]">Điểm tư thế</span>
-        <span style={{ color }} className="font-bold">{score}%</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#2e2e58' }}>Điểm tư thế</span>
+        <span style={{ fontSize: 13, fontWeight: 900, color }}>{score}%</span>
       </div>
-      <div className="h-2 bg-[#1a1a28] rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-300"
-          style={{ width: `${score}%`, background: color }}
-        />
+      <div style={{ height: 6, background: 'rgba(255,255,255,0.06)', borderRadius: 99, overflow: 'hidden' }}>
+        <div style={{ height: '100%', width: `${score}%`, background: color, borderRadius: 99, transition: 'width 0.3s ease' }} />
       </div>
     </div>
   )
 }
+
+/* ─── Card ─── */
+const C = ({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) => (
+  <div style={{
+    background: 'rgba(10,10,22,0.92)', border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: 20, padding: 20, ...style,
+  }}>
+    {children}
+  </div>
+)
 
 export default function LiveAI() {
   const [searchParams] = useSearchParams()
@@ -72,311 +104,258 @@ export default function LiveAI() {
   const [mediapipeLoaded, setMediapipeLoaded] = useState(false)
   const { addSession } = useWorkoutStore()
 
-  // Load MediaPipe scripts from CDN
   useEffect(() => {
     const scripts = [
       'https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js',
       'https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js',
       'https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js',
     ]
-
     let loaded = 0
-    const trySetLoaded = () => {
-      loaded++
-      if (loaded === scripts.length) setMediapipeLoaded(true)
-    }
-
+    const trySetLoaded = () => { loaded++; if (loaded === scripts.length) setMediapipeLoaded(true) }
     scripts.forEach((src) => {
-      if (document.querySelector(`script[src="${src}"]`)) {
-        trySetLoaded()
-        return
-      }
+      if (document.querySelector(`script[src="${src}"]`)) { trySetLoaded(); return }
       const s = document.createElement('script')
-      s.src = src
-      s.crossOrigin = 'anonymous'
-      s.onload = trySetLoaded
-      s.onerror = trySetLoaded
+      s.src = src; s.crossOrigin = 'anonymous'; s.onload = trySetLoaded; s.onerror = trySetLoaded
       document.head.appendChild(s)
     })
   }, [])
 
-  // Plank timer
   useEffect(() => {
     if (!isActive || selectedExercise.type !== 'plank') return
-    const interval = setInterval(() => {
-      setPlankSeconds((s) => s + 1)
-    }, 1000)
+    const interval = setInterval(() => setPlankSeconds((s) => s + 1), 1000)
     return () => clearInterval(interval)
   }, [isActive, selectedExercise.type])
 
-  // Elapsed time
   useEffect(() => {
     if (!isActive) return
-    const interval = setInterval(() => {
-      setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000))
-    }, 1000)
+    const interval = setInterval(() => setElapsedSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000)), 1000)
     return () => clearInterval(interval)
   }, [isActive])
 
   const onResults = useCallback((results: any) => {
-    const canvas = canvasRef.current
-    const video = videoRef.current
+    const canvas = canvasRef.current; const video = videoRef.current
     if (!canvas || !video) return
-
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-
-    canvas.width = video.videoWidth || 640
-    canvas.height = video.videoHeight || 480
-
-    ctx.save()
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
-
+    canvas.width = video.videoWidth || 640; canvas.height = video.videoHeight || 480
+    ctx.save(); ctx.clearRect(0, 0, canvas.width, canvas.height)
     if (results.poseLandmarks) {
-      if (window.drawConnectors && window.POSE_CONNECTIONS) {
-        window.drawConnectors(ctx, results.poseLandmarks, window.POSE_CONNECTIONS, {
-          color: '#7c6ff7',
-          lineWidth: 2,
-        })
-      }
-      if (window.drawLandmarks) {
-        window.drawLandmarks(ctx, results.poseLandmarks, {
-          color: '#9d92ff',
-          fillColor: '#7c6ff7',
-          lineWidth: 1,
-          radius: 4,
-        })
-      }
-
-      const newState = analyzeExercise(
-        selectedExercise.type as ExerciseType,
-        results.poseLandmarks,
-        repStateRef.current
-      )
-      repStateRef.current = newState
-      setRepState({ ...newState })
+      if (window.drawConnectors && window.POSE_CONNECTIONS)
+        window.drawConnectors(ctx, results.poseLandmarks, window.POSE_CONNECTIONS, { color: '#7c6df0', lineWidth: 2 })
+      if (window.drawLandmarks)
+        window.drawLandmarks(ctx, results.poseLandmarks, { color: '#a89af8', fillColor: '#7c6df0', lineWidth: 1, radius: 4 })
+      const newState = analyzeExercise(selectedExercise.type as ExerciseType, results.poseLandmarks, repStateRef.current)
+      repStateRef.current = newState; setRepState({ ...newState })
     }
     ctx.restore()
   }, [selectedExercise.type])
 
   const startCamera = async () => {
-    if (!mediapipeLoaded) {
-      alert('MediaPipe đang tải, vui lòng thử lại sau vài giây.')
-      return
-    }
+    if (!mediapipeLoaded) { alert('MediaPipe đang tải, vui lòng thử lại sau vài giây.'); return }
     setIsLoading(true)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } })
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        await videoRef.current.play()
-      }
-
-      const pose = new window.Pose({
-        locateFile: (file: string) =>
-          `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
-      })
-      pose.setOptions({
-        modelComplexity: 1,
-        smoothLandmarks: true,
-        minDetectionConfidence: 0.6,
-        minTrackingConfidence: 0.5,
-      })
-      pose.onResults(onResults)
-      poseRef.current = pose
-
+      if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play() }
+      const pose = new window.Pose({ locateFile: (file: string) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}` })
+      pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.6, minTrackingConfidence: 0.5 })
+      pose.onResults(onResults); poseRef.current = pose
       if (window.Camera && videoRef.current) {
         const camera = new window.Camera(videoRef.current, {
-          onFrame: async () => {
-            if (videoRef.current) await pose.send({ image: videoRef.current })
-          },
-          width: 640,
-          height: 480,
+          onFrame: async () => { if (videoRef.current) await pose.send({ image: videoRef.current }) },
+          width: 640, height: 480,
         })
-        camera.start()
-        cameraRef.current = camera
+        camera.start(); cameraRef.current = camera
       }
-
-      repStateRef.current = initialRepState
-      setRepState(initialRepState)
-      setPlankSeconds(0)
-      startTimeRef.current = Date.now()
-      setElapsedSeconds(0)
-      setIsActive(true)
+      repStateRef.current = initialRepState; setRepState(initialRepState)
+      setPlankSeconds(0); startTimeRef.current = Date.now(); setElapsedSeconds(0); setIsActive(true)
     } catch (err) {
-      console.error('Camera error:', err)
-      alert('Không thể truy cập camera. Vui lòng cho phép quyền camera.')
-    } finally {
-      setIsLoading(false)
-    }
+      console.error('Camera error:', err); alert('Không thể truy cập camera. Vui lòng cho phép quyền camera.')
+    } finally { setIsLoading(false) }
   }
 
   const stopCamera = () => {
     cameraRef.current?.stop()
     if (videoRef.current?.srcObject) {
       const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
-      tracks.forEach((t) => t.stop())
-      videoRef.current.srcObject = null
+      tracks.forEach((t) => t.stop()); videoRef.current.srcObject = null
     }
     poseRef.current = null
-
-    // Save session
     if (repStateRef.current.count > 0 || plankSeconds > 0) {
       const duration = Math.max(1, Math.floor(elapsedSeconds / 60))
-      addSession({
-        date: new Date().toISOString().split('T')[0],
-        duration,
-        exercises: [{ exercise: selectedExercise, sets: 1, reps: repStateRef.current.count }],
-        calories: Math.round(duration * 6),
-        totalReps: repStateRef.current.count,
-      })
+      addSession({ date: new Date().toISOString().split('T')[0], duration, exercises: [{ exercise: selectedExercise, sets: 1, reps: repStateRef.current.count }], calories: Math.round(duration * 6), totalReps: repStateRef.current.count })
     }
-
     setIsActive(false)
   }
 
   const switchExercise = (exercise: Exercise) => {
-    setSelectedExercise(exercise)
-    repStateRef.current = initialRepState
-    setRepState(initialRepState)
-    setPlankSeconds(0)
+    setSelectedExercise(exercise); repStateRef.current = initialRepState; setRepState(initialRepState); setPlankSeconds(0)
   }
 
   const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+  const phaseColor = repState.phase === 'up' ? '#34d399' : repState.phase === 'down' ? '#fbbf24' : '#5858a0'
+  const phaseLabel = repState.phase === 'idle' ? 'Sẵn sàng' : repState.phase === 'down' ? '⬇ Xuống' : '⬆ Lên'
 
   return (
     <div>
       <Header title="Live AI" subtitle="Phân tích tư thế tập luyện real-time" />
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
-        {/* Camera view */}
-        <div className="xl:col-span-2 space-y-4">
-          <Card className="p-0 overflow-hidden">
-            <div className="relative bg-black" style={{ aspectRatio: '4/3' }}>
-              <video
-                ref={videoRef}
-                className="w-full h-full object-cover"
-                style={{ transform: 'scaleX(-1)' }}
-                muted
-                playsInline
-              />
-              <canvas
-                ref={canvasRef}
-                className="absolute inset-0 w-full h-full"
-                style={{ transform: 'scaleX(-1)' }}
-              />
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16 }}>
+        {/* ── Left: Camera + exercise selector ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Camera */}
+          <C style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ position: 'relative', background: '#050510', aspectRatio: '4/3' }}>
+              <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)', display: 'block' }} muted playsInline />
+              <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', transform: 'scaleX(-1)' }} />
+
               {!isActive && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0a0f]/90">
-                  <div className="text-6xl mb-4">📹</div>
-                  <p className="text-[#f0f0ff] font-semibold text-lg mb-2">Camera chưa bật</p>
-                  <p className="text-[#8888aa] text-sm mb-6">Bật camera để bắt đầu phân tích tư thế</p>
-                  <Button onClick={startCamera} size="lg" disabled={isLoading}>
-                    {isLoading ? '⏳ Đang tải...' : '🎥 Bật Camera'}
-                  </Button>
+                <div style={{
+                  position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center', background: 'rgba(5,5,16,0.95)',
+                }}>
+                  {/* Camera icon */}
+                  <div style={{
+                    width: 72, height: 72, borderRadius: '50%', marginBottom: 20,
+                    background: 'rgba(124,109,240,0.12)', border: '1px solid rgba(124,109,240,0.3)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#a89af8" strokeWidth={1.5} strokeLinecap="round" style={{ width: 32, height: 32 }}>
+                      <path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                    </svg>
+                  </div>
+                  <p style={{ color: '#d0d0f0', fontWeight: 700, fontSize: 16, marginBottom: 6 }}>Camera chưa bật</p>
+                  <p style={{ color: '#3a3a6a', fontSize: 13, marginBottom: 24 }}>Bật camera để bắt đầu phân tích tư thế AI</p>
+                  <Btn onClick={startCamera} disabled={isLoading}>
+                    {isLoading ? '⏳ Đang tải...' : '▶ Bật Camera'}
+                  </Btn>
                   {!mediapipeLoaded && (
-                    <p className="text-[#555570] text-xs mt-3">⏳ Đang tải MediaPipe...</p>
+                    <p style={{ color: '#2e2e58', fontSize: 11, marginTop: 10 }}>⏳ Đang tải MediaPipe...</p>
                   )}
                 </div>
               )}
+
               {isActive && (
-                <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
-                  <Badge variant="accent">{selectedExercise.emoji} {selectedExercise.nameVi}</Badge>
-                  <Badge variant="default">⏱ {formatTime(elapsedSeconds)}</Badge>
+                <div style={{ position: 'absolute', top: 12, left: 12, right: 12, display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{
+                    padding: '6px 12px', borderRadius: 99, fontSize: 12, fontWeight: 700,
+                    background: 'rgba(124,109,240,0.85)', backdropFilter: 'blur(12px)', color: 'white',
+                  }}>
+                    {selectedExercise.emoji} {selectedExercise.nameVi}
+                  </div>
+                  <div style={{
+                    padding: '6px 12px', borderRadius: 99, fontSize: 12, fontWeight: 700,
+                    background: 'rgba(10,10,22,0.85)', backdropFilter: 'blur(12px)', color: '#d0d0f0',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                  }}>
+                    ⏱ {formatTime(elapsedSeconds)}
+                  </div>
                 </div>
               )}
             </div>
-          </Card>
+          </C>
 
           {/* Exercise selector */}
-          <Card>
-            <h3 className="text-sm font-semibold text-[#f0f0ff] mb-3">Chọn bài tập</h3>
-            <div className="grid grid-cols-3 gap-2">
-              {EXERCISES.map((ex) => (
-                <button
-                  key={ex.id}
-                  onClick={() => switchExercise(ex)}
-                  className={`p-3 rounded-lg border text-left transition-all ${
-                    selectedExercise.id === ex.id
-                      ? 'border-[#7c6ff7] bg-[#7c6ff7]/15'
-                      : 'border-[#22223a] bg-[#1a1a28] hover:border-[#7c6ff7]/50'
-                  }`}
-                >
-                  <div className="text-xl mb-1">{ex.emoji}</div>
-                  <div className="text-xs font-medium text-[#f0f0ff]">{ex.nameVi}</div>
-                  <div className="text-xs text-[#555570]">{ex.muscleGroups[0]}</div>
-                </button>
-              ))}
+          <C>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#2e2e58', marginBottom: 12 }}>
+              Chọn bài tập
             </div>
-          </Card>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+              {EXERCISES.map((ex) => {
+                const active = selectedExercise.id === ex.id
+                return (
+                  <button
+                    key={ex.id}
+                    onClick={() => switchExercise(ex)}
+                    style={{
+                      padding: '12px 8px', borderRadius: 12, textAlign: 'left', cursor: 'pointer', border: 'none',
+                      background: active ? 'rgba(124,109,240,0.16)' : 'rgba(255,255,255,0.025)',
+                      border: `1px solid ${active ? 'rgba(124,109,240,0.45)' : 'rgba(255,255,255,0.06)'}`,
+                      transition: 'all 0.15s',
+                    } as React.CSSProperties}
+                  >
+                    <div style={{ fontSize: 22, marginBottom: 5 }}>{ex.emoji}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: active ? '#a89af8' : '#d0d0f0' }}>{ex.nameVi}</div>
+                    <div style={{ fontSize: 10, color: '#2e2e58', marginTop: 2 }}>{ex.muscleGroups[0]}</div>
+                  </button>
+                )
+              })}
+            </div>
+          </C>
         </div>
 
-        {/* Right panel */}
-        <div className="space-y-4">
+        {/* ── Right panel ── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {/* Rep counter */}
-          <Card className="text-center">
-            <p className="text-xs text-[#8888aa] mb-2">
+          <C style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.14em', color: '#2e2e58', marginBottom: 8 }}>
               {selectedExercise.type === 'plank' ? 'Thời gian giữ' : 'Số Reps'}
-            </p>
-            <div className="text-7xl font-black text-[#7c6ff7] my-4">
+            </div>
+            <div style={{
+              fontSize: 64, fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1,
+              background: 'linear-gradient(135deg, #a89af8, #7c6df0)', WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent', backgroundClip: 'text', marginBottom: 12,
+            }}>
               {selectedExercise.type === 'plank' ? formatTime(plankSeconds) : repState.count}
             </div>
-            <Badge variant={repState.phase === 'down' ? 'warning' : repState.phase === 'up' ? 'success' : 'default'}>
-              {repState.phase === 'idle' ? 'Sẵn sàng' : repState.phase === 'down' ? '⬇ Xuống' : '⬆ Lên'}
-            </Badge>
-          </Card>
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '5px 14px', borderRadius: 99,
+              background: `${phaseColor}14`, border: `1px solid ${phaseColor}40`,
+              color: phaseColor, fontSize: 12, fontWeight: 700,
+            }}>
+              {phaseLabel}
+            </div>
+          </C>
 
           {/* Score */}
-          <Card>
+          <C>
             <ScoreBar score={repState.score} />
-          </Card>
+          </C>
 
           {/* Feedback */}
-          <Card>
-            <h3 className="text-sm font-semibold text-[#f0f0ff] mb-3">Phản hồi tư thế</h3>
-            <div className="space-y-2 min-h-[100px]">
+          <C style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#2e2e58', marginBottom: 10 }}>
+              Phản hồi tư thế
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minHeight: 80 }}>
               {repState.feedback.length === 0 ? (
-                <p className="text-xs text-[#555570] text-center py-4">
+                <div style={{ textAlign: 'center', padding: '20px 0', color: '#2e2e58', fontSize: 12 }}>
                   {isActive ? 'Hãy thực hiện động tác...' : 'Bật camera để nhận phản hồi'}
-                </p>
+                </div>
               ) : (
                 repState.feedback.map((fb, i) => <FeedbackItem key={i} item={fb} />)
               )}
             </div>
-          </Card>
+          </C>
 
           {/* Exercise info */}
-          <Card>
-            <h3 className="text-sm font-semibold text-[#f0f0ff] mb-2">
-              {selectedExercise.emoji} {selectedExercise.nameVi}
-            </h3>
-            <p className="text-xs text-[#8888aa] mb-3">{selectedExercise.description}</p>
-            <div className="flex flex-wrap gap-1">
+          <C>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontSize: 20 }}>{selectedExercise.emoji}</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#d0d0f0' }}>{selectedExercise.nameVi}</span>
+            </div>
+            <p style={{ fontSize: 11, color: '#3a3a6a', lineHeight: 1.6, marginBottom: 10 }}>{selectedExercise.description}</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 10 }}>
               {selectedExercise.muscleGroups.map((m) => (
-                <Badge key={m} variant="accent">{m}</Badge>
+                <span key={m} style={{
+                  padding: '3px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600,
+                  background: 'rgba(124,109,240,0.12)', border: '1px solid rgba(124,109,240,0.25)', color: '#a89af8',
+                }}>
+                  {m}
+                </span>
               ))}
             </div>
-            <div className="mt-3 pt-3 border-t border-[#22223a] flex gap-4 text-xs">
-              <div>
-                <span className="text-[#555570]">Sets: </span>
-                <span className="text-[#f0f0ff] font-medium">{selectedExercise.suggestedSets}</span>
-              </div>
-              <div>
-                <span className="text-[#555570]">Reps: </span>
-                <span className="text-[#f0f0ff] font-medium">{selectedExercise.suggestedReps}</span>
-              </div>
+            <div style={{ display: 'flex', gap: 16, paddingTop: 10, borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: 12 }}>
+              <div><span style={{ color: '#2e2e58' }}>Sets: </span><span style={{ color: '#d0d0f0', fontWeight: 700 }}>{selectedExercise.suggestedSets}</span></div>
+              <div><span style={{ color: '#2e2e58' }}>Reps: </span><span style={{ color: '#d0d0f0', fontWeight: 700 }}>{selectedExercise.suggestedReps}</span></div>
             </div>
-          </Card>
+          </C>
 
-          {/* Control button */}
-          {isActive ? (
-            <Button onClick={stopCamera} variant="danger" size="lg" className="w-full">
-              ⏹ Dừng & Lưu
-            </Button>
-          ) : (
-            <Button onClick={startCamera} size="lg" className="w-full" disabled={isLoading}>
-              {isLoading ? '⏳ Đang tải...' : '▶ Bắt đầu'}
-            </Button>
-          )}
+          {/* Control */}
+          {isActive
+            ? <Btn onClick={stopCamera} danger full>⏹ Dừng &amp; Lưu</Btn>
+            : <Btn onClick={startCamera} disabled={isLoading} full>{isLoading ? '⏳ Đang tải...' : '▶ Bắt đầu'}</Btn>
+          }
         </div>
       </div>
     </div>
