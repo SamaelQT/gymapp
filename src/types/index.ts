@@ -3,6 +3,9 @@ export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'active' | 'ver
 export type Gender = 'male' | 'female'
 export type ExerciseType = 'squat' | 'pushup' | 'plank' | 'bicep_curl' | 'lunge' | 'shoulder_press'
 
+export type WorkoutLocation = 'gym' | 'home' | 'outdoor' | 'mixed'
+export type Experience = 'beginner' | 'intermediate' | 'advanced'
+
 export interface Profile {
   id?: string
   name: string
@@ -13,6 +16,13 @@ export interface Profile {
   goal: Goal
   activity_level: ActivityLevel
   avatar_url?: string
+  // Onboarding extended fields
+  purpose?: string[]
+  workout_location?: WorkoutLocation
+  equipment?: string[]
+  experience?: Experience
+  frequency?: string
+  session_duration?: number
 }
 
 export interface Exercise {

@@ -5,6 +5,10 @@ import type { Profile as ProfileType, Goal, ActivityLevel, Gender } from '../typ
 import { calculateTDEE } from '../lib/nutrition'
 import { motion } from 'framer-motion'
 
+const LOCATION_LABELS: Record<string, string> = { gym: '🏋️ Phòng gym', home: '🏠 Tại nhà', outdoor: '🌳 Ngoài trời', mixed: '🔄 Kết hợp' }
+const EXPERIENCE_LABELS: Record<string, string> = { beginner: '🌱 Mới bắt đầu', intermediate: '🌿 Trung bình', advanced: '🌳 Nâng cao' }
+const EQUIPMENT_LABELS: Record<string, string> = { barbell: 'Tạ đòn', dumbbell: 'Tạ đơn', machine: 'Máy tập', band: 'Dây kháng lực', kettlebell: 'Kettlebell', bodyweight: 'Không dụng cụ' }
+
 const GOAL_LABELS: Record<Goal, string> = { lose_fat: '🔥 Giảm mỡ', gain_muscle: '💪 Tăng cơ', maintain: '⚖️ Duy trì' }
 const GOAL_COLORS: Record<Goal, string> = { lose_fat: '#fb923c', gain_muscle: '#34d399', maintain: '#38bdf8' }
 const ACTIVITY_LABELS: Record<ActivityLevel, string> = {
@@ -22,7 +26,7 @@ const inputStyle: React.CSSProperties = { width: '100%', background: 'rgba(255,2
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.13em', color: '#2e2e58', marginBottom: 7 }
 
 export default function Profile() {
-  const { profile, setProfile } = useUserStore()
+  const { profile, setProfile, resetOnboarding } = useUserStore()
   const [editing, setEditing] = useState(!profile)
   const [form, setForm] = useState<ProfileType>(profile || defaultProfile)
   const [saved, setSaved] = useState(false)
@@ -257,11 +261,73 @@ export default function Profile() {
             </div>
           ))}
         </div>
-        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#1e1e3a' }}>
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: '#1e1e3a' }}>
           <span>FitForge v1.0 · React + Vite + MediaPipe</span>
-          <span>Built with ❤️</span>
+          <button
+            onClick={() => { if (confirm('Làm lại bài khảo sát? Thông tin hồ sơ sẽ bị reset.')) resetOnboarding() }}
+            style={{ padding: '5px 12px', borderRadius: 8, border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)', color: '#3a3a6a', fontSize: 11, cursor: 'pointer' }}
+          >
+            🔄 Làm lại khảo sát
+          </button>
         </div>
       </div>
+
+      {/* Onboarding details card */}
+      {profile && (profile.workout_location || profile.experience || (profile.equipment && profile.equipment.length > 0)) && (
+        <div style={{ ...cardBase, marginTop: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: '#d0d0f0', marginBottom: 16 }}>Thông tin từ khảo sát</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
+            {profile.workout_location && (
+              <div style={{ background: 'rgba(255,255,255,0.025)', borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ fontSize: 10, color: '#2e2e58', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Nơi tập</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#d0d0f0' }}>{LOCATION_LABELS[profile.workout_location] || profile.workout_location}</div>
+              </div>
+            )}
+            {profile.experience && (
+              <div style={{ background: 'rgba(255,255,255,0.025)', borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ fontSize: 10, color: '#2e2e58', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Trình độ</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#d0d0f0' }}>{EXPERIENCE_LABELS[profile.experience] || profile.experience}</div>
+              </div>
+            )}
+            {profile.frequency && (
+              <div style={{ background: 'rgba(255,255,255,0.025)', borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ fontSize: 10, color: '#2e2e58', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Tần suất tập</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#d0d0f0' }}>{profile.frequency} buổi/tuần</div>
+              </div>
+            )}
+            {profile.session_duration && (
+              <div style={{ background: 'rgba(255,255,255,0.025)', borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ fontSize: 10, color: '#2e2e58', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Thời gian/buổi</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#d0d0f0' }}>{profile.session_duration} phút</div>
+              </div>
+            )}
+          </div>
+          {profile.equipment && profile.equipment.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 10, color: '#2e2e58', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Dụng cụ</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {profile.equipment.map(e => (
+                  <span key={e} style={{ padding: '4px 12px', borderRadius: 99, fontSize: 12, fontWeight: 600, background: 'rgba(124,109,240,0.1)', border: '1px solid rgba(124,109,240,0.25)', color: '#a89af8' }}>
+                    {EQUIPMENT_LABELS[e] || e}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {profile.purpose && profile.purpose.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <div style={{ fontSize: 10, color: '#2e2e58', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Mục đích</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {profile.purpose.map(p => (
+                  <span key={p} style={{ padding: '4px 12px', borderRadius: 99, fontSize: 12, fontWeight: 600, background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.25)', color: '#34d399' }}>
+                    {p}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

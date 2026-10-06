@@ -2,13 +2,16 @@ import type { ReactNode } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Sidebar } from './components/layout/Sidebar'
 import { useAuthStore } from './store/useAuthStore'
+import { useUserStore } from './store/useUserStore'
 import Auth from './pages/Auth'
+import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
 import LiveAI from './pages/LiveAI'
 import Workout from './pages/Workout'
 import Nutrition from './pages/Nutrition'
 import Progress from './pages/Progress'
 import Profile from './pages/Profile'
+import Roadmap from './pages/Roadmap'
 
 function Layout({ children }: { children: ReactNode }) {
   return (
@@ -25,10 +28,17 @@ function Layout({ children }: { children: ReactNode }) {
 
 export default function App() {
   const { user } = useAuthStore()
+  const { onboardingCompleted } = useUserStore()
 
   if (!user) return (
     <BrowserRouter>
       <Auth />
+    </BrowserRouter>
+  )
+
+  if (!onboardingCompleted) return (
+    <BrowserRouter>
+      <Onboarding />
     </BrowserRouter>
   )
 
@@ -41,6 +51,7 @@ export default function App() {
         <Route path="/nutrition"  element={<Layout><Nutrition /></Layout>} />
         <Route path="/progress"   element={<Layout><Progress /></Layout>} />
         <Route path="/profile"    element={<Layout><Profile /></Layout>} />
+        <Route path="/roadmap"    element={<Layout><Roadmap /></Layout>} />
       </Routes>
     </BrowserRouter>
   )
